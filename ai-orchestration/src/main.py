@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from dotenv import load_dotenv
 
 from .workflow import run_generation
-from .clients.granite import get_granite_llm
+from .clients.granite import granite_chat
 
 load_dotenv()
 
@@ -67,16 +67,13 @@ def orchestrate_refine(req: RefineRequest):
     REFINER_PROMPT_PATH = Path(__file__).parent / "prompts" / "refiner.txt"
     system_prompt = REFINER_PROMPT_PATH.read_text(encoding="utf-8")
 
-    llm = get_granite_llm()
-
-    prompt = (
-        f"{system_prompt}\n\n"
-        f"Current scene state:\n{json.dumps(req.current_state, indent=2)}\n\n"
-        f"User command: {req.command}\n\n"
-        "Respond with valid JSON only."
+    raw = granite_chat(
+        system_prompt=system_prompt,
+        user_prompt=(
+            f"Current scene state:\n{json.dumps(req.current_state, indent=2)}\n\n"
+            f"User command: {req.command}\n\nRespond with valid JSON only."
+        ),
     )
-
-    raw = llm.invoke(prompt)
 
     # Extract JSON block
     start = raw.find("{")

@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 
 from ..models.schemas import AudioPlan, SceneState
-from ..clients.granite import get_granite_llm
+from ..clients.granite import granite_chat
 
 PROMPT_PATH = Path(__file__).parent.parent / "prompts" / "planner.txt"
 SYSTEM_PROMPT = PROMPT_PATH.read_text(encoding="utf-8")
@@ -15,19 +15,15 @@ def planner_agent(state: dict) -> dict:
     Scene Planner Agent — reasons about voice casting, ambience selection,
     and 3D spatial positioning using IBM Granite.
     """
-    llm          = get_granite_llm()
     parsed_script = state.get("parsed_script")
 
     if not parsed_script:
         return {**state, "errors": state.get("errors", []) + ["Planner: no parsed script"], "status": "failed"}
 
-    prompt = (
-        f"{SYSTEM_PROMPT}\n\n"
-        f"Scene data:\n{json.dumps(parsed_script, indent=2)}\n\n"
-        "Respond with valid JSON only."
+    raw = granite_chat(
+        system_prompt=SYSTEM_PROMPT,
+        user_prompt=f"Scene data:\n{json.dumps(parsed_script, indent=2)}\n\nRespond with valid JSON only.",
     )
-
-    raw = llm.invoke(prompt)
     raw = _extract_json(raw)
 
     try:
