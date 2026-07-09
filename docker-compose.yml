@@ -1,0 +1,59 @@
+﻿services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: soundweave
+      POSTGRES_PASSWORD: soundweave
+      POSTGRES_DB: soundweave
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/src/db/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://soundweave:soundweave@postgres:5432/soundweave
+      REDIS_URL: redis://redis:6379
+      ORCHESTRATION_URL: http://ai-orchestration:8000
+    depends_on:
+      - postgres
+      - redis
+      - ai-orchestration
+    volumes:
+      - ./backend/src:/app/src
+
+  ai-orchestration:
+    build: ./ai-orchestration
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://soundweave:soundweave@postgres:5432/soundweave
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file: .env
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:3001
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
